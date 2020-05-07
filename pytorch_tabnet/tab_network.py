@@ -291,12 +291,11 @@ class FeatTransformer(torch.nn.Module):
             'virtual_batch_size': virtual_batch_size,
             'momentum': momentum
         }
-
+        
         if shared_layers is None:
-            self.shared = None
-            self.specifics = GLU_Block(input_dim, output_dim,
-                                       first=True,
-                                       **params)
+            # no shared layers
+            self.shared = torch.nn.Identity()
+            is_first = True
         else:
             self.shared = GLU_Block(input_dim, output_dim,
                                     first=True,
@@ -304,12 +303,19 @@ class FeatTransformer(torch.nn.Module):
                                     n_glu=len(shared_layers),
                                     virtual_batch_size=virtual_batch_size,
                                     momentum=momentum)
-            self.specifics = GLU_Block(output_dim, output_dim,
+            is_first = False
+
+        if n_glu_independent == 0:
+            # no independent layers
+            self.specifics = torch.nn.Identity()
+        else:
+            spec_input_dim = input_dim if is_first else output_dim
+            self.specifics = GLU_Block(spec_input_dim, output_dim,
+                                       first=is_first,
                                        **params)
 
     def forward(self, x):
-        if self.shared is not None:
-            x = self.shared(x)
+        x = self.shared(x)
         x = self.specifics(x)
         return x
 
